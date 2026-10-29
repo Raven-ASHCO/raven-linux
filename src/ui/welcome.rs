@@ -9,6 +9,7 @@
 use gtk::glib;
 use gtk::prelude::*;
 use raven_desktop::api::{ApiError, SettingsPatch};
+use raven_desktop::netview;
 use raven_desktop::strings::{tr, trf};
 use raven_desktop::theme::tokens;
 use raven_desktop::words::group_old_code;
@@ -136,7 +137,22 @@ impl Setup {
         title.set_margin_top(sp(LG));
         p.append(&title);
         p.append(&label(tr("welcome.body1"), &[]));
-        p.append(&label(tr("welcome.body2"), &["dim"]));
+        // Whom Raven reaches follows the engine: "the same network" only
+        // while LAN direct is the one way on (network.status needs no
+        // identity), else the ways it has on.
+        let reach = label("", &["dim"]);
+        reach.set_visible(false);
+        p.append(&reach);
+        let reach = reach.downgrade();
+        self.ctx.call(
+            |e| e.network_status(),
+            move |_, result| {
+                if let Some(reach) = reach.upgrade() {
+                    reach.set_text(&netview::welcome_reach_line(result.ok().as_ref()));
+                    reach.set_visible(true);
+                }
+            },
+        );
         let steps = vbox(sp(SM));
         steps.set_margin_top(sp(SM));
         for (i, key) in [

@@ -19,9 +19,14 @@ git submodule update --init
 
 ## Status
 
-**In development.** There are no packages and nothing to download yet. The app uses whatever the
-engine allows: in a release engine only direct messaging on the local network is on, and every other
-way to reach friends is a lab feature that stays off (see `core/README.md`).
+**In development.** There are no packages and nothing to download yet. The app shows what the engine
+reports (`network.status`, `groups.list`) and offers what it allows. Since raven-core version 0.1.0 a
+release engine reaches friends on the same local network directly and friends on other networks too:
+over Tor with the default settings, and over Internet direct, peer-to-peer and router port mapping once
+you turn listening on; friends can keep mail for each other, relay for each other and tell each other
+their routes, and groups are on. Bluetooth nearby is macOS only: Linux release builds have no Bluetooth
+backend. Every other way to reach friends is a lab feature that stays off. None of this is
+independently reviewed yet (see `core/README.md`, "Status").
 
 This is a standalone Cargo project with its own `Cargo.lock`; it is **not** part of the `core/node/`
 workspace. Dependencies: `gtk4` (=0.11.5), `serde` (=1.0.229), `serde_json` (=1.0.151) and Raven's
@@ -130,7 +135,7 @@ done
 | `src/ui/style.rs` | CSS provider, light/dark following, Theme (System/Light/Dark), motion (the desktop's Animations switch and Raven's Reduced motion) |
 | `src/ui/calm.rs` | The Calm building blocks: icons and the mark drawn in the text colour, `Clamp` (content widths), frame-clock tweens, the tick mark, path chips, the group ring, the segmented control, the gliding list, Settings cards and rows |
 | `src/ui/a11y.rs` | Accessible names and descriptions (GTK 4.0's `gtk_accessible_update_property_value`, declared here because gtk4-rs exposes it only with `v4_10`) |
-| `src/ui/welcome.rs` | Welcome and Setup on a card with its step strip (name, receive, the identity being made, your security words) |
+| `src/ui/welcome.rs` | Welcome and Setup on a card with its step strip (name, receive, the identity being made, your security words); whom Raven reaches follows `network.status` ("the same network" only while LAN direct is the one way on) |
 | `src/ui/main_window.rs`, `sidebar.rs`, `chat_view.rs` | The window: the sidebar (mark and heartbeat, You, Search, Friends, Groups, Add a friend, New group, Network, Security words, Security, Settings), the chat (header, route line, day lines, bubbles, ticks, chips, group rings, the away card, the toast pill, the composer), and the handling of every engine event |
 | `src/ui/group_sheets.rs` | New group and Members (add, remove, leave) |
 | `src/ui/settings.rs` | Settings: General, Appearance, Privacy (Erase sheet), Lock (Lock sheet), Network, Updates, About |
@@ -139,7 +144,7 @@ done
 | `src/ui/security_page.rs`, `src/ui/lock_screen.rs` | The Security page (notices) and the locked window |
 | `src/ui/routes.rs` | A friend's Routes panel (from the chat header) |
 | `src/ui/route_line.rs` | The route line: You ── path ── friend, with its packets (`DrawingArea`) |
-| `src/ui/check_words.rs`, `add_friend.rs`, `message_details.rs`, `quit.rs` | Dialogs (sheets) |
+| `src/ui/check_words.rs`, `add_friend.rs`, `message_details.rs`, `quit.rs` | Dialogs (sheets); Add a friend shows the engine's `card.parse` `note` under the pasted card's summary when it left unsigned routes out of the card |
 | `src/ui/tray.rs` | The tray icon: `org.kde.StatusNotifierItem` and `com.canonical.dbusmenu` exported with gio's D-Bus API on the app's own session-bus connection |
 | `src/ui/widgets.rs` | Labels, Calm buttons, sheets, avatar sizes with presence dot and retry ring, the read-aloud word cards, the step strip |
 | `data/` | `.desktop` file, AppStream metainfo, hicolor icons (64, 128, 192 px from `core/desktop/design/assets/raven-logo-*.png`) |
@@ -195,8 +200,9 @@ done
   revealers stop too; it follows the desktop again when the switch goes off), the app's own tweens draw
   their end state at once, and a `reduced-motion` class on every window is a backstop. The first
   `events.poll` backlog is applied without motion (the window already loaded the current state).
-- **Groups** (`core/desktop/api/API.md`, Groups; lab only). The sidebar shows GROUPS only when `groups.list` says
-  `available` (a release build says no; an engine without the ops answers an error: the same). A group
+- **Groups** (`core/desktop/api/API.md`, Groups; on in release builds since raven-core 0.1.0). The sidebar shows
+  GROUPS only when `groups.list` says `available` (a build that holds groups says no; an engine without the
+  ops answers an error: the same). A group
   chat shows each member's name in their avatar colour with a small avatar, "Passed on by …" when another
   member brought it, and under your message a ring with one arc per member (delivered, waiting, sent,
   failed), "Delivered to 3 of 5" and its note ("1 waiting · 1 not confirmed yet"), and Details with every
@@ -328,8 +334,8 @@ goes through the same JSON envelope as the real engine:
   (she comes back). Sending to the group confirms friends in touch in about a second and members who
   aren't your friends through Ali; Mina's copy waits. New group, add, remove and leave follow API.md
   (16 members at most, you included; the admin can't leave).
-- Network: by default a release build's answers (API.md, Mocks): LAN direct on, every other way
-  Preview, a held way refused with `NOT_AVAILABLE_YET`, Lock v2, security notices and updates not in
+- Network: by default the answers API.md's Mocks section describes (the release state before version
+  0.1.0): LAN direct on, every other way Preview, a held way refused with `NOT_AVAILABLE_YET`, Lock v2, security notices and updates not in
   this version. `RAVEN_MOCK_NETWORK=lab` answers as a developer build with lab switches set, to
   review every screen state: the ways the switches open are Off until switched on, then Lab only;
   `carry_for_friends`, `friends_carry_mine` and `handoff` answer `CONSENT_NEEDED` without

@@ -788,6 +788,24 @@ pub fn ways_on_line(status: &NetworkStatus) -> String {
     }
 }
 
+/// The welcome screen's line about whom Raven reaches, from what the engine
+/// has on: "In this version, you and your friend must be on the same
+/// network …" only while LAN direct is the one way on (or the engine did not
+/// answer); else the ways on now ("Ways on: LAN \u{00B7} Tor"; a release
+/// build since version 0.1.0 also reaches friends elsewhere through Tor).
+pub fn welcome_reach_line(status: Option<&NetworkStatus>) -> String {
+    match status {
+        Some(s)
+            if s.carriers
+                .iter()
+                .any(|w| w.id != "lan" && matches!(Chip::of(w.state), Chip::On | Chip::Lab)) =>
+        {
+            ways_on_line(s)
+        }
+        _ => tr("welcome.body2").to_string(),
+    }
+}
+
 /// What the tray shows about the network.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NetworkSummary {
@@ -1264,6 +1282,27 @@ mod tests {
         assert!(!summary(&s, false).lab);
         let none = status(json!([way("lan", "off", Some(false), None)]));
         assert_eq!(ways_on_line(&none), "No way to reach friends is on");
+    }
+
+    /// Welcome says "the same network" only while LAN direct is the one way
+    /// on: with Tor on (release builds since 0.1.0) it names the ways on.
+    #[test]
+    fn the_welcome_line_follows_the_ways_the_engine_has_on() {
+        let lan_only = status(json!([
+            way("lan", "on", Some(true), Some(true)),
+            way("internet", "preview", Some(false), None),
+            way("tor", "preview", None, None),
+            way("nearby", "preview", Some(false), None),
+        ]));
+        assert_eq!(welcome_reach_line(Some(&lan_only)), tr("welcome.body2"));
+        assert_eq!(welcome_reach_line(None), tr("welcome.body2"));
+        let v010 = status(json!([
+            way("lan", "on", Some(true), Some(true)),
+            way("internet", "off", Some(false), None),
+            way("tor", "on", None, None),
+            way("nearby", "preview", Some(false), None),
+        ]));
+        assert_eq!(welcome_reach_line(Some(&v010)), "Ways on: LAN \u{00B7} Tor");
         assert_eq!(size_text(10), "10 bytes");
         assert_eq!(size_text(5 * 1024 * 1024), "5.0 MB");
     }

@@ -8,7 +8,7 @@
   <summary>Messages straight to your friends. No server.</summary>
   <description>
     <p>Raven sends messages straight from this computer to your friends' computers. There is no server, no account and no phone number.</p>
-    <p>In this version, you and your friend must be on the same network (the same Wi-Fi or office network).</p>
+    <p>Friends on the same network (the same Wi-Fi or office network) are reached directly; friends on other networks through the Tor network, without a server in between. Bluetooth nearby is not available on Linux.</p>
   </description>
   <launchable type="desktop-id">io.github.raven_ashco.Raven.desktop</launchable>
   <provides>
