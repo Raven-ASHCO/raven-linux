@@ -478,6 +478,7 @@ Signing: deb repositories signed with the project key; AppImage with an embedded
 
 ## License
 
-GNU Affero General Public License v3.0 (`LICENSE`). The Raven name, logo and app icons are covered
+Copyright (C) 2026 ASHCO. GNU Affero General Public License v3.0 (`LICENSE`; notice and pending
+additional terms in `NOTICE`). The Raven name, logo and app icons are covered
 separately by `core/TRADEMARK.md` and `core/ASSET_LICENSE.md`. Security issues: please write to
 security@raven-messager.com (`SECURITY.md`), not a public issue.
