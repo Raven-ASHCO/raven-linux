@@ -1,0 +1,142 @@
+# Raven desktop app for Linux (GTK 4, Rust): build with Raven's engine, unit tests, engine
+# tests, clippy; a release build of the app and of raven-node (the background program the
+# app starts), kept as a workflow artifact for packaging.
+#
+# This is a standalone Cargo project (its own Cargo.lock). It links the engine
+# (core/node/crates/raven-client, from the raven-core submodule at core/) by path behind the
+# cargo feature `engine` (on by default), and tools/check-lock-sync.py keeps every crate the
+# two lock files share at core/node/Cargo.lock's version. The app embeds files from
+# core/desktop/design (strings, tokens, logo, the security-word list used by the debug-only
+# mock).
+#
+# The submodule is fetched with RAVEN_CORE_TOKEN (a read-only token for raven-core) when that
+# secret exists, else with the workflow's own token (enough once raven-core is public).
+name: Desktop Linux (GTK 4)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Least privilege; third-party actions pinned to full commit SHAs (the comment
+# names the release), as in the other workflows.
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.98.0"
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: desktop-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and test (GTK 4, engine)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          token: ${{ secrets.RAVEN_CORE_TOKEN || github.token }}
+      # GTK 4 for the app. The engine needs no system package beyond the runner's C
+      # toolchain (bundled SQLite, pure-Rust D-Bus), as in the node workflow's Linux jobs.
+      - name: Install GTK 4 development files
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-4-dev
+          pkg-config --modversion gtk4
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            .
+            core/node
+          prefix-key: desktop-linux-engine
+      - name: Lock file follows node/Cargo.lock
+        run: python3 tools/check-lock-sync.py
+      # The shared strings against this app: every key it uses exists and every call fills
+      # exactly its text's placeholders (the unused-key check needs all three app checkouts).
+      - name: Shared strings (this app)
+        env:
+          RAVEN_APP_LINUX: .
+        run: python3 core/desktop/design/check_strings.py
+      - name: rustfmt
+        run: cargo fmt --check
+      - name: Build (GTK + engine)
+        run: cargo build --locked
+      # Unit tests and tests/engine.rs: the real engine on a throwaway profile with the
+      # file-backed secret stores (the test sets them up itself; no keyring, no listening port).
+      - name: Test (GTK + engine)
+        run: cargo test --locked
+      - name: Test the engine path without GTK
+        run: cargo test --locked --no-default-features --features engine
+      - name: Test the GTK-free core on its own (no engine)
+        run: cargo test --locked --lib --no-default-features
+      # The engine's own tests (node/crates/raven-client), with the delivery flow through two
+      # real raven-node processes on 127.0.0.1 (free ports): on plain profiles
+      # (tests/delivery.rs), and on encrypted ones (tests/privacy.rs sets the privacy pack's lab
+      # switch RAVEN_LAB_AT_REST=1 for itself and its raven-node processes; the other test
+      # binaries clear every privacy lab switch). File-backed secret stores, throwaway profiles.
+      - name: Engine tests (raven-client, plain and encrypted profiles)
+        working-directory: core/node
+        env:
+          RAVEN_IDENTITY_BACKEND: locked-file
+          RAVEN_SESSION_BACKEND: locked-file
+          RAVEN_PREKEY_BACKEND: locked-file
+          RAVEN_CHAT_HISTORY_BACKEND: locked-file
+          RAVEN_ALLOW_EPHEMERAL_DATA_DIR: "1"
+        run: |
+          cargo build --locked -p raven-node
+          cargo test --locked -p raven-client
+      - name: Clippy
+        run: |
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features -- -D warnings
+          cargo clippy --locked --release --all-targets -- -D warnings
+      - name: Release build (GTK + engine)
+        run: cargo build --locked --release
+      # The default build links raven-client; MockRaven is compiled only into debug builds,
+      # so its demo old code must not be in the release binary.
+      - name: Release binary has the engine, not the mock
+        run: |
+          set -euo pipefail
+          cargo tree --locked -e normal -i raven-client --depth 1
+          bin=target/release/raven-desktop
+          if grep -aq "Tq7m-29Xa-hKe4" "$bin"; then
+            echo "MockRaven's demo data is in the release build" >&2
+            exit 1
+          fi
+          grep -aq "Tq7m-29Xa-hKe4" target/debug/raven-desktop || {
+            echo "the check is broken: the demo old code is not in the debug build either" >&2
+            exit 1
+          }
+          ls -l "$bin"
+      - name: Release build of raven-node (shipped next to the app)
+        working-directory: core/node
+        run: |
+          cargo build --locked --release -p raven-node
+          ls -l target/release/raven-node
+      - name: Upload the app and raven-node
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: raven-desktop-linux-x86_64
+          path: |
+            target/release/raven-desktop
+            core/node/target/release/raven-node
+          if-no-files-found: error
+          retention-days: 7
+      # Informational until packaging lands (Flathub also wants screenshots).
+      - name: Validate desktop entry and AppStream metadata
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
+          desktop-file-validate data/io.github.raven_ashco.Raven.desktop
+          appstreamcli validate --no-net --explain data/io.github.raven_ashco.Raven.metainfo.xml

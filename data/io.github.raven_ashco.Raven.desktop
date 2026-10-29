@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Raven
+Comment=Messages straight to your friends. No server.
+Exec=raven-desktop
+Icon=io.github.raven_ashco.Raven
+Terminal=false
+Categories=Network;InstantMessaging;GTK;
+Keywords=chat;message;messenger;peer-to-peer;p2p;
+StartupNotify=true
+SingleMainWindow=true
+X-GNOME-UsesNotifications=true

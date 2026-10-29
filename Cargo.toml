@@ -1,0 +1,62 @@
+[package]
+name = "raven-desktop-linux"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.92"
+license = "AGPL-3.0-or-later"
+authors = ["RAVEN contributors"]
+description = "Raven desktop app for Linux (GTK 4)"
+publish = false
+
+# A standalone project: NOT a member of the core/node/ workspace (raven-core, the git
+# submodule at core/). `exclude` keeps the engine's crates in their own workspace: path
+# dependencies inside this folder would otherwise become members of this one.
+[workspace]
+exclude = ["core"]
+
+[lib]
+name = "raven_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "raven-desktop"
+path = "src/main.rs"
+required-features = ["gui"]
+
+# The real engine through the app's own types (tests/engine.rs): a throwaway
+# profile and the file-backed secret stores, never ~/.raven.
+[[test]]
+name = "engine"
+path = "tests/engine.rs"
+required-features = ["engine"]
+
+[features]
+default = ["gui", "engine"]
+# The GTK front end. `cargo test --lib --no-default-features` builds and tests
+# the GTK-free core (engine trait, mock, strings, theme, sanitiser) without
+# the GTK system libraries.
+gui = ["dep:gtk"]
+# Raven's engine, linked in (raven-client, node/crates/raven-client). Without
+# it `ClientEngine` answers NOT_INITIALIZED ("this build doesn't include its
+# engine"). `cargo test --no-default-features --features engine` tests the
+# engine path without GTK.
+engine = ["dep:raven-client"]
+
+[dependencies]
+# Imported as `gtk` (the usual gtk-rs convention). No GTK version features:
+# the code uses only GTK 4.0 APIs, so it runs on GTK 4.6 (Ubuntu 22.04) and newer.
+gtk = { package = "gtk4", version = "=0.11.5", optional = true }
+# The desktop engine of the node workspace (desktop/api/API.md): the CLI's own
+# code behind one JSON call. Cargo.lock keeps every crate it shares with
+# node/Cargo.lock at node's version (tools/check-lock-sync.py checks it).
+raven-client = { path = "core/node/crates/raven-client", optional = true }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+
+# The node workspace's audited SQLCipher fork (node/Cargo.toml, Task 0A.2):
+# patches apply only from the root project, so this project repeats it.
+[patch.crates-io]
+libsqlite3-sys = { path = "core/node/third_party/libsqlite3-sys-raven" }
+
+[profile.release]
+lto = "thin"

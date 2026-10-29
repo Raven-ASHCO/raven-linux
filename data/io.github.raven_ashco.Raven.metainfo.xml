@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata for software centres (GNOME Software, KDE Discover, Flathub). -->
+<component type="desktop-application">
+  <id>io.github.raven_ashco.Raven</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <name>Raven</name>
+  <summary>Messages straight to your friends. No server.</summary>
+  <description>
+    <p>Raven sends messages straight from this computer to your friends' computers. There is no server, no account and no phone number.</p>
+    <p>In this version, you and your friend must be on the same network (the same Wi-Fi or office network).</p>
+  </description>
+  <launchable type="desktop-id">io.github.raven_ashco.Raven.desktop</launchable>
+  <provides>
+    <binary>raven-desktop</binary>
+  </provides>
+  <developer id="io.github.raven_ashco">
+    <name>RAVEN contributors</name>
+  </developer>
+  <url type="homepage">https://github.com/Raven-ASHCO/RAVEN</url>
+  <url type="bugtracker">https://github.com/Raven-ASHCO/RAVEN/issues</url>
+  <url type="vcs-browser">https://github.com/Raven-ASHCO/RAVEN</url>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+  </content_rating>
+  <requires>
+    <display_length compare="ge">760</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <releases>
+    <release version="0.1.0" date="2026-10-21" type="development"/>
+  </releases>
+</component>
