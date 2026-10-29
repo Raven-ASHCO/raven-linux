@@ -1,7 +1,7 @@
 //! What the screens say, computed from engine data (pure, GTK-free, tested).
 //! Every text comes from strings.en.json through `tr`/`trf`.
 
-use crate::api::{Contact, Message, MessageState, NodeStatus, Presence};
+use crate::api::{Contact, Message, MessageState, NodeStatus, ParsedCard, Presence};
 use crate::icons::Icon;
 use crate::strings::{tr, trf};
 use crate::timefmt;
@@ -285,12 +285,55 @@ pub fn own_network_address(node: &NodeStatus) -> Option<String> {
     Some(format!("{ip}:{port}"))
 }
 
+/// The add-friend flow's line under a pasted card's summary: the engine's
+/// note about the routes it left out of the card (`card.parse` `note`: no key
+/// signs a card's addresses), without the terminal's "note:" prefix. `None`
+/// when nothing was left out (or the engine predates the note).
+pub fn card_note(card: &ParsedCard) -> Option<String> {
+    let note = card.note.as_deref()?.trim();
+    let note = match note.get(..5) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("note:") => note[5..].trim_start(),
+        _ => note,
+    };
+    let mut chars = note.chars();
+    let first = chars.next()?;
+    Some(first.to_uppercase().chain(chars).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::api::{Direction, Waiting};
 
     const NOW: u64 = 1_792_505_100_000;
+
+    fn parsed(note: Option<&str>) -> ParsedCard {
+        ParsedCard {
+            short_address: "rvn1qali".into(),
+            has_address: false,
+            routes: Vec::new(),
+            ignored_routes: note.map(|_| vec!["internet".into()]).unwrap_or_default(),
+            note: note.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn a_card_note_is_the_engines_line_without_the_terminal_prefix() {
+        assert_eq!(
+            card_note(&parsed(Some(
+                "note: Raven ignored this card's inet=: no key signs a card's addresses"
+            )))
+            .as_deref(),
+            Some("Raven ignored this card's inet=: no key signs a card's addresses")
+        );
+        assert_eq!(
+            card_note(&parsed(Some("  some other line  "))).as_deref(),
+            Some("Some other line")
+        );
+        assert_eq!(card_note(&parsed(Some("NOTE:"))), None);
+        assert_eq!(card_note(&parsed(Some("   "))), None);
+        assert_eq!(card_note(&parsed(None)), None);
+    }
 
     fn contact(verified: bool, presence: Presence) -> Contact {
         Contact {

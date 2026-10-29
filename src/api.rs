@@ -364,6 +364,15 @@ pub struct ParsedCard {
     pub has_address: bool,
     #[serde(default)]
     pub routes: Vec<Route>,
+    /// Route kinds the card named that the engine left out (`internet`,
+    /// `p2p`): no key signs a card's addresses, so release builds never read
+    /// them. Empty from an engine that predates the field.
+    #[serde(default)]
+    pub ignored_routes: Vec<String>,
+    /// The engine's one line about [`Self::ignored_routes`]; `None` when
+    /// nothing was left out.
+    #[serde(default)]
+    pub note: Option<String>,
 }
 
 impl SanitizeDisplay for ParsedCard {
@@ -372,6 +381,10 @@ impl SanitizeDisplay for ParsedCard {
         for r in &mut self.routes {
             sanitize::inline(&mut r.label);
         }
+        for kind in &mut self.ignored_routes {
+            sanitize::inline(kind);
+        }
+        sanitize::inline_opt(&mut self.note);
     }
 }
 
@@ -2273,6 +2286,34 @@ mod tests {
         let mut g = list.groups[0].clone();
         g.sanitize_display();
         assert_eq!(g.name, "Trip");
+    }
+
+    /// card.parse since release/v0.1.0: the route kinds left out of a card
+    /// and the engine's line about them; an older engine has neither.
+    #[test]
+    fn parsed_card_carries_the_left_out_routes_and_note() {
+        let card: ParsedCard = decode(json!({
+            "short_address": "rvn1qali\u{202e}", "has_address": false, "routes": [],
+            "address": "rvn1qaliexample", "already_saved": false, "already_verified": false,
+            "ignored_routes": ["internet", "p2p"],
+            "note": "note: Raven ignored this card's inet= and p2p=\u{0007}: no key signs a card's addresses"
+        }))
+        .map(sanitized)
+        .unwrap();
+        assert_eq!(card.ignored_routes, ["internet", "p2p"]);
+        let note = card.note.as_deref().unwrap();
+        assert!(note.starts_with("note: Raven ignored"), "{note}");
+        assert!(!note.chars().any(char::is_control), "{note:?}");
+        assert_eq!(card.short_address, "rvn1qali");
+        let older: ParsedCard =
+            decode(json!({ "short_address": "rvn1qali", "has_address": true })).unwrap();
+        assert!(older.ignored_routes.is_empty());
+        assert_eq!(older.note, None);
+        let none: ParsedCard = decode(json!({
+            "short_address": "rvn1qali", "has_address": false, "ignored_routes": [], "note": null
+        }))
+        .unwrap();
+        assert_eq!(none.note, None);
     }
 
     #[test]

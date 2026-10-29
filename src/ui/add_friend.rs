@@ -33,6 +33,9 @@ struct AddFriend {
     paste_revealer: gtk::Revealer,
     summary_row: gtk::Box,
     summary: gtk::Label,
+    /// The engine's note about routes it left out of the pasted card
+    /// (`card.parse` `note`), under the summary.
+    card_note: gtk::Label,
     paste_error: gtk::Label,
     name: gtk::Entry,
     name_error: gtk::Label,
@@ -72,6 +75,7 @@ pub fn show(ctx: &Rc<Ctx>) {
         paste_revealer: gtk::Revealer::new(),
         summary_row: hbox(sp(SM)),
         summary: label("", &[]),
+        card_note: label("", &["dim", "small"]),
         paste_error: label("", &["danger"]),
         name: gtk::Entry::new(),
         name_error: label("", &["danger"]),
@@ -215,6 +219,9 @@ impl AddFriend {
         self.summary_row.append(&change);
         self.summary_row.set_visible(false);
         p.append(&self.summary_row);
+        self.card_note.set_selectable(true);
+        self.card_note.set_visible(false);
+        p.append(&self.card_note);
         self.paste_error.set_visible(false);
         p.append(&self.paste_error);
 
@@ -239,6 +246,7 @@ impl AddFriend {
                 s.paste_revealer.set_transition_duration(0);
                 s.paste_revealer.set_reveal_child(true);
                 s.summary_row.set_visible(false);
+                s.card_note.set_visible(false);
                 s.paste.grab_focus();
             }
         });
@@ -292,6 +300,7 @@ impl AddFriend {
         self.update_add_sensitive();
         if text.trim().is_empty() {
             self.paste_error.set_visible(false);
+            self.card_note.set_visible(false);
             return;
         }
         let me = self.me.clone();
@@ -320,6 +329,16 @@ impl AddFriend {
                 };
                 self.summary.set_text(&format!("\u{2713} {summary}"));
                 self.summary_row.set_visible(true);
+                // Routes the engine left out of the card (no key signs a
+                // card's addresses): its own line, as `raven contact add`
+                // prints it.
+                match present::card_note(&card) {
+                    Some(note) => {
+                        self.card_note.set_text(&note);
+                        self.card_note.set_visible(true);
+                    }
+                    None => self.card_note.set_visible(false),
+                }
                 self.paste_error.set_visible(false);
                 // Collapsing follows the engine's answer: allowed to move.
                 self.paste_revealer.set_transition_duration(
@@ -331,6 +350,7 @@ impl AddFriend {
             }
             Err(e) => {
                 self.parsed.replace(None);
+                self.card_note.set_visible(false);
                 self.paste_error.set_text(&e.message);
                 self.paste_error.set_visible(true);
             }

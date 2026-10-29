@@ -1049,10 +1049,14 @@ impl State {
                         preview: false,
                     });
                 }
+                // The mock's invites carry no Internet or p2p route, so
+                // nothing is left out.
                 to_value(&ParsedCard {
                     short_address: short(&address),
                     has_address: lan.is_some(),
                     routes,
+                    ignored_routes: Vec::new(),
+                    note: None,
                 })
             }
             "contacts.list" => {
