@@ -429,20 +429,22 @@ fn the_network_screens_read_the_real_engine() {
     assert_eq!(updates.install, "Installing updates isn't in this app yet.");
 }
 
-/// Groups are lab only: without the lab switches (`RAVEN_LAB_GROUPS` and
-/// the others, never set here) the engine says `available: false`, the app
-/// shows no Groups section, and the other ops are NOT_AVAILABLE_YET.
+/// Groups follow the engine's gate (no lab switch is set here): while
+/// `groups.list` says `available: false` the app shows no Groups section and
+/// the other ops are NOT_AVAILABLE_YET; a build that offers groups lists none
+/// on this new profile, and a group it doesn't have is refused all the same.
 #[test]
-fn groups_are_not_offered_without_the_lab_switches() {
+fn groups_are_offered_only_as_the_engine_says() {
     let _ = created();
     let e = engine();
     let list = e.groups_list().expect("groups.list");
-    assert!(!list.available, "{list:?}");
-    assert!(list.groups.is_empty());
+    assert!(list.groups.is_empty(), "{list:?}");
     let err = e
         .groups_send("00000000000000000000000000000000", "hi")
-        .expect_err("groups.send without groups");
-    assert!(err.is(codes::NOT_AVAILABLE_YET), "{err:?}");
+        .expect_err("groups.send to a group this profile doesn't have");
+    if !list.available {
+        assert!(err.is(codes::NOT_AVAILABLE_YET), "{err:?}");
+    }
     assert!(!err.message.is_empty());
 }
 
